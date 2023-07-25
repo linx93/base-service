@@ -53,8 +53,7 @@ func (cs CacheService[V]) FindById(id int, dbs ...*gorm.DB) (result *V, err erro
 		return c[0], nil
 	}
 
-	// SELECT * FROM tab WHERE id = 10;
-	err = cs.getDB(dbs...).First(&result, id).Error
+	result, err = cs.BaseService.FindById(id, dbs...)
 	if err == nil {
 		cs.Put(generateKey, []*V{result})
 	}
@@ -72,8 +71,7 @@ func (cs CacheService[V]) FindByIds(ids []int, dbs ...*gorm.DB) (result []*V, er
 		return c, nil
 	}
 
-	// SELECT * FROM tab WHERE id IN (1,2,3);
-	err = cs.getDB(dbs...).Find(&result, ids).Error
+	result, err = cs.BaseService.FindByIds(ids, dbs...)
 	if err == nil {
 		cs.Put(generateKey, result)
 	}
@@ -88,7 +86,7 @@ func (cs CacheService[V]) ListByModel(model *V, dbs ...*gorm.DB) (result []*V, e
 		return c, nil
 	}
 
-	err = cs.getDB(dbs...).Where(model).Find(&result).Error
+	result, err = cs.BaseService.ListByModel(model, dbs...)
 	if err == nil {
 		cs.Put(generateKey, result)
 	}
@@ -96,8 +94,7 @@ func (cs CacheService[V]) ListByModel(model *V, dbs ...*gorm.DB) (result []*V, e
 }
 
 func (cs CacheService[V]) DeleteById(model *V, id int, dbs ...*gorm.DB) error {
-	err := cs.getDB(dbs...).Delete(model, id).Error
-
+	err := cs.BaseService.DeleteById(model, id, dbs...)
 	if err == nil {
 		//删除成功需要清缓存
 		cs.Clear()
@@ -106,7 +103,7 @@ func (cs CacheService[V]) DeleteById(model *V, id int, dbs ...*gorm.DB) error {
 }
 
 func (cs CacheService[V]) DeleteByIds(model *V, ids []int, dbs ...*gorm.DB) error {
-	err := cs.getDB(dbs...).Delete(model, ids).Error
+	err := cs.BaseService.DeleteByIds(model, ids, dbs...)
 	if err == nil {
 		//删除成功需要清缓存
 		cs.Clear()
@@ -117,7 +114,7 @@ func (cs CacheService[V]) DeleteByIds(model *V, ids []int, dbs ...*gorm.DB) erro
 func (cs CacheService[V]) DeleteByCond(model *V, where string, v []any, dbs ...*gorm.DB) error {
 	// where->name LIKE ? v->string[]{"%jinzhu%"}
 	// where->name LIKE ? v->string[]{"%jinzhu%",18}
-	err := cs.getDB(dbs...).Where(where, v...).Delete(model).Error
+	err := cs.BaseService.DeleteByCond(model, where, v)
 	if err == nil {
 		//删除成功需要清缓存
 		cs.Clear()
@@ -127,7 +124,7 @@ func (cs CacheService[V]) DeleteByCond(model *V, where string, v []any, dbs ...*
 
 func (cs CacheService[V]) UpdateById(target *V, dbs ...*gorm.DB) error {
 	//这里执行Updates后是不会把值填充到target的，所以只返回err就好了，返回target没意义，和传进来的一样
-	err := cs.getDB(dbs...).Updates(target).Error
+	err := cs.BaseService.UpdateById(target, dbs...)
 	if err == nil {
 		//更新成功需要清缓存
 		cs.Clear()
@@ -137,7 +134,7 @@ func (cs CacheService[V]) UpdateById(target *V, dbs ...*gorm.DB) error {
 
 func (cs CacheService[V]) UpdateByCond(where string, v []any, target *V, dbs ...*gorm.DB) error {
 	//这里执行Updates后是不会把值填充到target的，所以只返回err就好了，返回target没意义，和传进来的一样
-	err := cs.getDB(dbs...).Where(where, v...).Updates(target).Error
+	err := cs.BaseService.UpdateByCond(where, v, target, dbs...)
 	if err == nil {
 		//更新成功需要清缓存
 		cs.Clear()
@@ -146,16 +143,16 @@ func (cs CacheService[V]) UpdateByCond(where string, v []any, target *V, dbs ...
 }
 
 func (cs CacheService[V]) Save(model *V, dbs ...*gorm.DB) (*V, error) {
-	err := cs.getDB(dbs...).Save(model).Error
+	save, err := cs.BaseService.Save(model, dbs...)
 	if err == nil {
 		//更新或插入成功需要清缓存
 		cs.Clear()
 	}
-	return model, err
+	return save, err
 }
 
 func (cs CacheService[V]) SaveBatch(models []*V, dbs ...*gorm.DB) error {
-	err := cs.getDB(dbs...).Save(&models).Error
+	err := cs.BaseService.SaveBatch(models, dbs...)
 	if err == nil {
 		//更新或插入成功需要清缓存
 		cs.Clear()
@@ -164,10 +161,6 @@ func (cs CacheService[V]) SaveBatch(models []*V, dbs ...*gorm.DB) error {
 }
 
 func (cs CacheService[V]) EndTx(db *gorm.DB, err error) (e error) {
-	if err != nil {
-		e = db.Rollback().Error
-	} else {
-		e = db.Commit().Error
-	}
-	return e
+	e = cs.BaseService.EndTx(db, err)
+	return
 }

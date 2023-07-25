@@ -103,5 +103,5 @@ func (bService BaseService[T]) EndTx(db *gorm.DB, err error) (e error) {
 	} else {
 		e = db.Commit().Error
 	}
-	return e
+	return
 }
